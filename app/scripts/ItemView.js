@@ -245,6 +245,7 @@ var ItemView = Backbone.View.extend({
   },
 
   initDisqus: function() {
+    $('#disqus_thread').empty();
     var disqus_shortname = $('#disqus_loader').data('disqus');
     $.ajaxSetup({cache:true});
     $.getScript('http://' + disqus_shortname + '.disqus.com/embed.js');
@@ -325,6 +326,10 @@ var ItemView = Backbone.View.extend({
     this.initCarousel();
     this.paginateRelatedCollections();
     this.initMediaPlayer();
+    if ($('#disqus_thread').html().length > 0) {
+      this.initDisqus();
+    }
+
 
     // bind pjax handlers to `this`
     // we need to save the bound handler to `this.bound_pjax_end` so we can later

@@ -16,6 +16,8 @@ from .cache_retry import SOLR_select, SOLR_raw, json_loads_url
 from static_sitemaps.util import _lazy_load
 from static_sitemaps import conf
 from requests.exceptions import HTTPError
+from django.core.exceptions import ObjectDoesNotExist
+from exhibits.models import ExhibitItem, Exhibit
 
 import os
 import operator
@@ -422,6 +424,15 @@ def itemView(request, item_id=''):
         })
     search_results = {'reference_image_md5': None}
     search_results.update(item_solr_search.results[0])
+
+    # print(search_results['id'])
+
+    # try:
+    #     exhibitItem = ExhibitItem.objects.get(item_id=search_results['id'])
+    #     print(exhibitItem.exhibit)
+    # except ObjectDoesNotExist:
+    #     print('foobar!')
+
     return render(request, 'calisphere/itemView.html', {
         'q': '',
         'item': search_results,
@@ -590,6 +601,15 @@ def relatedCollections(request, slug=None, repository_id=None):
     if repository_id:
         extra_filter = 'repository_url: "https://registry.cdlib.org/api/v1/repository/' + repository_id + '/"'
         solrParams['fq'].append(extra_filter)
+
+    # mlt search
+    if len(solrParams['q']) == 0 and len(solrParams['fq']) == 0:
+        item_id = params.get('itemId')
+        solrParams['q'] = 'id:' + item_id
+        # print(solrParams)
+        # print(ajaxRequest)
+        # print(item_id)
+
     related_collections = SOLR_select(**solrParams)
     related_collections = related_collections.facet_counts['facet_fields']['collection_data']
 
@@ -649,13 +669,28 @@ def relatedCollections(request, slug=None, repository_id=None):
     if not ajaxRequest:
         return three_related_collections
     else:
-        return render(request, 'calisphere/related-collections.html', {
+        context = {
             'q': params.get('q'),
             'rq': params.getlist('rq'),
             'num_related_collections': len(related_collections),
             'related_collections': three_related_collections,
             'rc_page': params.get('rc_page'),
-        })
+        }
+        if len(params.getlist('itemId')) > 0: 
+            context['itemId'] = params.get('itemId')
+        if len(params.getlist('referral')) > 0:
+            context['referral'] = params.get('referral')
+            context['referralName'] = params.get('referralName')
+            if context['referral'] == 'institution' or context['referral'] == 'campus': 
+                if (
+                    len(params.getlist('facet_decade')) > 0 
+                    or len(params.getlist('type_ss')) > 0 
+                    or len(params.getlist('collection_data')) > 0
+                ):
+                    context['filters'] = True
+                if context['referral'] == 'campus' and len(params.getlist('repository_data')) > 0:
+                    context['filters'] = True
+        return render(request, 'calisphere/related-collections.html', context)
 
 
 def collectionsDirectory(request):
